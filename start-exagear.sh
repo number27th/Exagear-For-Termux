@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/data/data/com.termux/files/usr/bin/bash
 ##
 ## Script for managing Exagear'ed Linux distribution installations/running in Termux.
 ## by Zhymabek Roman
@@ -7,17 +7,13 @@
 
 # Constants
 PROGRAM_NAME="ExaGear for Termux"
-PROGRAM_VERSION="2.2"
+PROGRAM_VERSION="2.1"
 CURRENT_WORK_FOLDER=$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 DEFAULT_ROOTFS_FOLDER="exagear-fs"
 
 # Colors
 GREEN='\033[0;32m'
 NC='\033[0m'
-
-# Enable bash strict mode
-# set -euo pipefail
-# IFS=$'\n\t'
 
 # Check whether it is running, in the root or normal environment.
 if [ "$(id -u)" = "0" ]; then
@@ -276,26 +272,7 @@ function setup_fake_proc
 
 
 function start_guest {
-    local rootfs_path=$DEFAULT_ROOTFS_FOLDER
-    local make_host_tmp_shared=false
-
-	while (($# >= 1)); do
-		case "$1" in
-			--)
-				shift 1
-				break
-				;;
-			--shared-tmp)
-				make_host_tmp_shared=true
-				;;
-            *)
-			echo "Error: unknown parameter '$ARG_ACTION'"
-			exit 1
-			;;
-		esac
-		shift 1
-	done
-
+    local rootfs_path=$1
 
     chmod +x "$CURRENT_WORK_FOLDER"/bin/ubt_x32a32_al_mem2g "$CURRENT_WORK_FOLDER"/bin/ubt_x32a32_al_mem3g "$CURRENT_WORK_FOLDER"/bin/test-memory-available
 
@@ -364,13 +341,6 @@ function start_guest {
         exagear_command="/bin/ubt_x32a32_al_mem2g"
     fi
 
-    if [ ! -d "$CURRENT_WORK_FOLDER/bin/proot-static/" ]; then
-      echo "Git submodule 'proot-static' not found! Try running these commands again:"
-      echo "git submodule init"
-      echo "git submodule update"
-      exit 1
-    fi
-
     exagear_command+=" --path-prefix /"$rootfs_path"/"
     exagear_command+=" --vfs-hacks=tlsasws,tsi,spd"
     exagear_command+=" --vfs-kind guest-first"
@@ -382,7 +352,7 @@ function start_guest {
     PATH=/usr/local/sbin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr
     LANG=en_US.utf8
     LANGUAGE=en_US.utf8
-    LC_ALL=C
+    LC_ALL=en_US.utf8
     BASH=/bin/bash
     SHELL=/bin/bash
     PREFIX=/usr
@@ -391,10 +361,10 @@ function start_guest {
     LD_LIBRARY_PATH=/lib:/usr/lib:/usr/lib/i386-linux-gnu/:/var/lib:/var/lib/dpkg/:/lib/i386-linux-gnu:/usr/local/lib/"
     exagear_command+=" /bin/bash --login "
 
-    proot_command="$CURRENT_WORK_FOLDER/bin/proot-static/proot_static"
+    proot_command=""$CURRENT_WORK_FOLDER"/bin/proot-static/proot_static"
     proot_command+=" -0"
     proot_command+=" --link2symlink"
-    proot_command+=" -r $CURRENT_WORK_FOLDER/"
+    proot_command+=" -r "$CURRENT_WORK_FOLDER"/"
     proot_command+=" -L"
     proot_command+=" --sysvipc"
     proot_command+=" --kill-on-exit"
@@ -403,38 +373,27 @@ function start_guest {
     proot_command+=" -b /proc"
     proot_command+=" -b /dev"
     proot_command+=" -b /storage"
-    proot_command+=" -b $rootfs_path/sys/fs/selinux/:/sys/fs/selinux"
-    proot_command+=" -b $rootfs_path/tmp/:/dev/shm/"
+    proot_command+=" -b "$rootfs_path"/sys/fs/selinux/:/sys/fs/selinux"
+    proot_command+=" -b "$rootfs_path"/tmp/:/dev/shm/"
     proot_command+=" -b /dev/urandom:/dev/random"
     proot_command+=" -w /"
-    proot_command+=" -b $rootfs_path/proc/.stat:/proc/stat"
-    proot_command+=" -b $rootfs_path/proc/.loadavg:/proc/loadavg"
-    proot_command+=" -b $rootfs_path/proc/.uptime:/proc/uptime"
-    proot_command+=" -b $rootfs_path/proc/.version:/proc/version"
-    proot_command+=" -b $rootfs_path/proc/.vmstat:/proc/vmstat"
-    if $make_host_tmp_shared; then
-        proot_command+=" -b $PREFIX/tmp/:/tmp/"
-    fi
+    proot_command+=" -b "$rootfs_path"/proc/.stat:/proc/stat"
+    proot_command+=" -b "$rootfs_path"/proc/.loadavg:/proc/loadavg"
+    proot_command+=" -b "$rootfs_path"/proc/.uptime:/proc/uptime"
+    proot_command+=" -b "$rootfs_path"/proc/.version:/proc/version"
+    proot_command+=" -b "$rootfs_path"/proc/.vmstat:/proc/vmstat"
 
     echo -e "${GREEN}[Starting x86 environment]${NC}\n"
     $proot_command $exagear_command
     echo -e "\n${GREEN}[Exit from x86 environment]${NC}\n"
 }
 
-ARG_ACTION="${1:-}"
-ARG_PARAMS="${2:-}"
 
-case "${ARG_ACTION}" in
-        ""|"login")
-            print_welcome_message
-            start_guest $ARG_PARAMS
-            ;;
-		-h|--help|help|--usage|-dh)
-            shift 1
-            print_usage_and_exit
-            ;;
+case "$1" in
+        "") print_welcome_message; start_guest $DEFAULT_ROOTFS_FOLDER;;
+		-h|--help|help|--usage|-dh) shift 1; print_usage_and_exit;;
 		*)
-			echo "Error: unknown command '$ARG_ACTION'"
+			echo "Error: unknown command '$1'"
 			exit 1
 			;;
 esac
